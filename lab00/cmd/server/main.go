@@ -7,13 +7,19 @@ import (
 )
 
 func hello(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Hello from Golang")
+	_, err := fmt.Fprintf(w, "Hello from Golang")
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func headers(w http.ResponseWriter, r *http.Request) {
 	for name, value := range r.Header {
 		for _, hval := range value {
-			fmt.Fprintf(w, "%v: %v\n", name, hval)
+			_, err := fmt.Fprintf(w, "%v: %v\n", name, hval)
+			if err != nil {
+				log.Fatal(err)
+			}
 		}
 	}
 }
