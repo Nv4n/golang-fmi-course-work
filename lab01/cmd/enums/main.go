@@ -1,5 +1,7 @@
 package main
 
+import "fmt"
+
 type Role int
 
 const (
@@ -10,6 +12,21 @@ const (
 	RoleMask = (1 << iota) - iota
 )
 
+func (r Role) String() string {
+	switch r {
+	case User:
+		return "User"
+	case Manager:
+		return "Manager"
+	case Admin:
+		return "Admin"
+	case Customer:
+		return "Customer"
+	default:
+		return "Invalid role"
+	}
+}
+
 type Status int
 
 const (
@@ -18,21 +35,9 @@ const (
 	Disabled
 )
 
-func (r Role) String() string {
-	switch r {
-	case User:
-		return "User"
-	case Manager:
-		return "Manager"
-	case Admin:
-		return "Admmin"
-	case Customer:
-		return "Customer"
-	default:
-		return "Invalid role"
-	}
-}
-
 func main() {
-
+	fmt.Printf("%s : %[1]T\n", User)
+	fmt.Printf("%s : %[1]T\n", Manager)
+	fmt.Printf("%s : %[1]T\n", Admin)
+	fmt.Printf("%s : %[1]T\n", Customer)
 }
