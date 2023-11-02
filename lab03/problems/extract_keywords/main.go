@@ -6,60 +6,57 @@ import (
 	"log"
 	"os"
 	"regexp"
-	"slices"
+	"sort"
+	"strings"
 )
 
 type Counts = map[string]int
+
 type WordCount struct {
 	Word  string
 	Count int
 }
 
-var stopwordsList = []string{
-	"a", "about", "above", "after", "again", "against", "all", "am", "an", "and", "any", "are",
-	"aren't", "as", "at", "be", "because", "been", "before", "being", "below", "between", "both",
-	"but", "by", "can't", "cannot", "could", "couldn't", "did", "didn't", "do", "does", "doesn't",
-	"doing", "don't", "down", "during", "each", "few", "for", "from", "further", "had", "hadn't",
-	"has", "hasn't", "have", "haven't", "having", "he", "he'd", "he'll", "he's", "her", "here",
-	"here's", "hers", "herself", "him", "himself", "his", "how", "how's", "i", "i'd", "i'll", "i'm",
-	"i've", "if", "in", "into", "is", "isn't", "it", "it's", "its", "itself", "let's", "me", "more",
-	"most", "mustn't", "my", "myself", "no", "nor", "not", "of", "off", "on", "once", "only", "or",
-	"other", "ought", "our", "ours", "ourselves", "out", "over", "own", "same", "shan't", "she",
-	"she'd", "she'll", "she's", "should", "shouldn't", "so", "some", "such", "than", "that", "that's",
-	"the", "their", "theirs", "them", "themselves", "then", "there", "there's", "these", "they",
-	"they'd", "they'll", "they're", "they've", "this", "those", "through", "to", "too", "under",
-	"until", "up", "very", "was", "wasn't", "we", "we'd", "we'll", "we're", "we've", "were", "weren't",
-	"what", "what's", "when", "when's", "where", "where's", "which", "while", "who", "who's", "whom",
-	"why", "why's", "with", "won't", "would", "wouldn't", "you", "you'd", "you'll", "you're", "you've",
-	"your", "yours", "yourself", "yourselves",
-}
-var splitRegexp = regexp.MustCompile(`\W`)
-var stopWordsMap = make(map[string]struct{}, len(stopwordsList))
+var stopWordsList = []string{`ourselves`, `hers`, `between`, `yourself`, `but`, `again`, `there`, `about`, `once`,
+	`during`, `out`, `very`, `having`, `with`, `they`, `own`, `an`, `be`, `some`, `for`, `do`, `its`, `yours`,
+	`such`, `into`, `of`, `most`, `itself`, `other`, `off`, `is`, `s`, `am`, `or`, `who`, `as`, `from`, `him`,
+	`each`, `the`, `themselves`, `until`, `below`, `are`, `we`, `these`, `your`, `his`, `through`, `don`, `nor`,
+	`me`, `were`, `her`, `more`, `himself`, `this`, `down`, `should`, `our`, `their`, `while`, `above`, `both`,
+	`up`, `to`, `ours`, `had`, `she`, `all`, `no`, `when`, `at`, `any`, `before`, `them`, `same`, `and`, `been`,
+	`have`, `in`, `will`, `on`, `does`, `yourselves`, `then`, `that`, `because`, `what`, `over`, `why`, `so`,
+	`can`, `did`, `not`, `now`, `under`, `he`, `you`, `herself`, `has`, `just`, `where`, `too`, `only`, `myself`,
+	`which`, `those`, `i`, `after`, `few`, `whom`, `t`, `being`, `if`, `theirs`, `my`, `against`, `a`, `by`,
+	`doing`, `it`, `how`, `further`, `was`, `here`, `than`}
+
+var splitRegexp = regexp.MustCompile(`\W+`)
+
+var stopWordsMap = make(map[string]struct{}, len(stopWordsList))
 
 func init() {
-	for _, stopWord := range stopwordsList {
+	for _, stopWord := range stopWordsList {
 		stopWordsMap[stopWord] = struct{}{}
 	}
 }
 
 func ExtractKeywords(file *os.File) (Counts, error) {
-	scanner := bufio.NewScanner(file)
 	counts := make(map[string]int)
+	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		words := splitRegexp.Split(scanner.Text(), -1)
-
 		for _, word := range words {
-			if _, ok := stopWordsMap[word]; ok || len(word) <= 2 {
+			word = strings.ToLower(word)
+			if _, found := stopWordsMap[word]; found || len(word) < 2 {
 				continue
 			}
 			counts[word]++
 		}
 	}
-	if scanner.Err() != nil {
-		return nil, scanner.Err()
+	if err := scanner.Err(); err != nil {
+		return nil, err
 	}
 	return counts, nil
 }
+
 func ProcessFile(fname string) (Counts, error) {
 	file, err := os.Open(fname)
 	if err != nil {
@@ -74,24 +71,24 @@ func TopKeywords(counts Counts, topN int) []WordCount {
 	for word, count := range counts {
 		wordCounts = append(wordCounts, WordCount{word, count})
 	}
-	slices.SortFunc(wordCounts, func(a, b WordCount) int {
-		return a.Count - b.Count
+	sort.Slice(wordCounts, func(i, j int) bool {
+		return wordCounts[i].Count > wordCounts[j].Count
 	})
 	return wordCounts[:topN]
 }
 
 func main() {
 	if len(os.Args) < 2 {
-		log.Fatal("Usage keywords <filename>1...fname.2...")
+		log.Fatal("Usage: keywords <filename_1>, ... <filename_N>")
 	}
-
 	files := os.Args[1:]
 	for _, fname := range files {
 		counts, err := ProcessFile(fname)
 		if err != nil {
-			fmt.Printf("error opening file %s: %v\n", fname, err)
+			log.Printf("Error opening file %s: %v\n", fname, err)
 			continue
 		}
+		//fmt.Printf("%v\n", counts)
+		fmt.Printf("%v\n", TopKeywords(counts, 15))
 	}
-	ExtractKeywords(file)
 }
