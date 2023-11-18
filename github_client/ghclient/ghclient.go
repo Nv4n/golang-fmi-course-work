@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"time"
 )
@@ -30,7 +31,7 @@ type UserFullData struct {
 	LanguageDistribution LanguageDistribution
 }
 
-type UserFormatedData struct {
+type UserFormattedData struct {
 	Username             string
 	Followers            int
 	ForksCount           int
@@ -43,7 +44,12 @@ func fetchGithubData[ReturnType UserData | []RepoData | map[string]interface{}](
 		_ = fmt.Errorf("error fetching: %v\n", err)
 	}
 	if res.Body != nil {
-		defer res.Body.Close()
+		defer func(Body io.ReadCloser) {
+			err := Body.Close()
+			if err != nil {
+				log.Fatalf("Error accessing body: %v", err)
+			}
+		}(res.Body)
 	}
 
 	var data ReturnType
@@ -66,14 +72,14 @@ func getLanguageApiURLs(repos []RepoData, repoLimit int) []string {
 	return langApiList
 }
 
-func calcLangDistribution(distribution map[string]int64) LanguageDistribution {
-	var totalLines int64
+func calcLangDistribution(distribution LanguageDistribution) LanguageDistribution {
+	totalLines := float64(0)
 	langDistribution := make(map[string]float64)
 	for _, lines := range distribution {
 		totalLines += lines
 	}
 	for lang, val := range distribution {
-		langDistribution[lang] = float64(val) * 100.0 / float64(totalLines)
+		langDistribution[lang] = val * 100.0 / totalLines
 	}
 	return langDistribution
 }
@@ -86,7 +92,7 @@ func calcTotalForksCount(repos []RepoData) int {
 	return count
 }
 
-func GetUserData(username string, repoLimit int) UserFormatedData {
+func GetUserData(username string, repoLimit int) UserFormattedData {
 	client := http.Client{
 		Timeout: time.Second * 3,
 	}
@@ -103,13 +109,13 @@ func GetUserData(username string, repoLimit int) UserFormatedData {
 
 	langApiList := getLanguageApiURLs(user.Repos, repoLimit)
 
-	languageBitList := make(map[string]int64)
+	languageBitList := make(map[string]float64)
 	for _, url := range langApiList {
 		languageRequest, _ := http.NewRequest(http.MethodGet, url, nil)
 
 		repoLangUsage := fetchGithubData[map[string]interface{}](&client, languageRequest)
 		for lang, val := range repoLangUsage {
-			if v, ok := val.(int64); ok {
+			if v, ok := val.(float64); ok {
 				languageBitList[lang] += v
 			}
 		}
@@ -118,7 +124,7 @@ func GetUserData(username string, repoLimit int) UserFormatedData {
 	user.LanguageDistribution = calcLangDistribution(languageBitList)
 	totalForkCount := calcTotalForksCount(user.Repos)
 
-	return UserFormatedData{
+	return UserFormattedData{
 		user.UserData.Username,
 		user.UserData.Followers,
 		totalForkCount,
