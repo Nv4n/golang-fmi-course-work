@@ -4,13 +4,14 @@ import (
 	"bufio"
 	"fmt"
 	gh "ghclient_homework/ghclient"
+	"github.com/olekukonko/tablewriter"
 	"log"
 	"os"
-
-	"github.com/rodaine/table"
+	"sort"
+	"strings"
 )
 
-func getUsernames(file *os.File) []string {
+func readUsernames(file *os.File) []string {
 	var usernames []string
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
@@ -22,35 +23,60 @@ func getUsernames(file *os.File) []string {
 	}
 	return usernames
 }
+func fetchUsers(usernames []string, repoLimit int, langThreshold float64) []gh.UserFormattedData {
+	var users []gh.UserFormattedData
+	for _, u := range usernames {
+		data := gh.GetUserData(u, repoLimit, langThreshold)
+		users = append(users, data)
+	}
+	return users
+}
+
+func formatLangDist(langDist gh.LanguageDistribution) string {
+	var builder strings.Builder
+	for l, dist := range langDist {
+		builder.WriteString(fmt.Sprintf("%s: %.2f%% / ", l, dist))
+	}
+	return builder.String()
+}
+
+func formatUserActivity(userActivity gh.UserActivity) string {
+	var builder strings.Builder
+	var years []int
+	for year := range userActivity {
+		years = append(years, year)
+	}
+	sort.Slice(years, func(l, r int) bool {
+		return years[l] > years[r]
+	})
+	for _, y := range years {
+		builder.WriteString(fmt.Sprintf("Y(%v): %v / ", y, userActivity[y]))
+	}
+	return builder.String()
+}
 
 func presentGhData(users []gh.UserFormattedData) {
-	languages := make(map[string]struct{})
-	for _, u := range users {
-		for l, _ := range u.LanguageDistribution {
-			languages[l] = struct{}{}
-		}
-	}
-	var languageColumns []string
-	for l, _ := range languages {
-		languageColumns = append(languageColumns, l)
-	}
-
-	columns := []string{"Username", "Followers", "Forks"}
-	columns = append(columns, languageColumns...)
-	tbl := table.New(columns)
+	columns := []string{"Username", "Followers", "Forks", "Repo Count", "Language usage", "User Activity"}
+	tbl := tablewriter.NewWriter(os.Stdout)
+	tbl.SetHeader(columns)
+	tbl.SetAutoFormatHeaders(true)
+	tbl.SetBorder(true)
+	tbl.SetRowSeparator("=")
+	tbl.SetAutoWrapText(true)
 
 	for _, u := range users {
-		var languageDistribution []interface{}
-		for _, dist := range u.LanguageDistribution {
-			languageDistribution = append(languageDistribution, fmt.Sprintf("%.2f", dist))
-		}
-		data := []interface{}{u.Username, fmt.Sprintf("%d", u.Followers), fmt.Sprintf("%d", u.ForksCount)}
-		//fmt.Println(data)
-		data = append(data, languageDistribution...)
-		tbl.AddRow(data...)
+		langDist := formatLangDist(u.LanguageDistribution)
+		userActivity := formatUserActivity(u.UserActivity)
+		data := []string{u.Username,
+			fmt.Sprintf("%d", u.Followers),
+			fmt.Sprintf("%d", u.ForksCount),
+			fmt.Sprintf("%d", u.RepoCount),
+			langDist,
+			userActivity}
+		tbl.Append(data)
 	}
 
-	tbl.Print()
+	tbl.Render()
 }
 
 func main() {
@@ -61,15 +87,16 @@ func main() {
 	pwd, _ := os.Getwd()
 	open, err := os.Open(fmt.Sprintf("%s\\cmd\\%s", pwd, filename))
 	if err != nil {
-		_ = fmt.Errorf("error opening filename %s: %v", filename, err)
+		log.Fatalf("error opening filename %s: %v", filename, err)
 		return
 	}
-	usernames := getUsernames(open)
-	var users []gh.UserFormattedData
-	for _, u := range usernames {
-		data := gh.GetUserData(u, 10)
-		users = append(users, data)
-	}
+
+	fmt.Println("Reading usernames...")
+	usernames := readUsernames(open)
+	fmt.Println("Fetching data...")
+	//RepoLimit: -1 FOR NO LIMIT
+	//Language Threshold: min percentage to be included
+	users := fetchUsers(usernames, -1, 1)
 	presentGhData(users)
 
 	defer func(open *os.File) {

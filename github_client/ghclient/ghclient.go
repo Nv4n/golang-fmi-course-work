@@ -20,10 +20,11 @@ type RepoData struct {
 	LanguagesApiURL string    `json:"languages_url"`
 	ForksCount      int       `json:"forks_count"`
 	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
+	PushedAt        time.Time `json:"pushed_at"`
 }
 
 type LanguageDistribution map[string]float64
+type UserActivity map[int]int
 
 type UserFullData struct {
 	UserData             UserData
@@ -35,14 +36,20 @@ type UserFormattedData struct {
 	Username             string
 	Followers            int
 	ForksCount           int
+	RepoCount            int
 	LanguageDistribution LanguageDistribution
+	UserActivity         UserActivity
 }
 
 func fetchGithubData[ReturnType UserData | []RepoData | map[string]interface{}](client *http.Client, request *http.Request) ReturnType {
 	res, err := client.Do(request)
 	if err != nil {
-		_ = fmt.Errorf("error fetching: %v\n", err)
+		log.Fatalf("error on doing request: %v\n", err)
 	}
+	if res == nil {
+		log.Fatalf("error not getting any response or hitting rate limit")
+	}
+
 	if res.Body != nil {
 		defer func(Body io.ReadCloser) {
 			err := Body.Close()
@@ -56,7 +63,7 @@ func fetchGithubData[ReturnType UserData | []RepoData | map[string]interface{}](
 	body, _ := io.ReadAll(res.Body)
 	jsonErr := json.Unmarshal(body, &data)
 	if jsonErr != nil {
-		_ = fmt.Errorf("error json parsing: %v\n", jsonErr)
+		log.Fatalf("error json parsing: %v\n", jsonErr)
 	}
 	return data
 }
@@ -72,14 +79,17 @@ func getLanguageApiURLs(repos []RepoData, repoLimit int) []string {
 	return langApiList
 }
 
-func calcLangDistribution(distribution LanguageDistribution) LanguageDistribution {
+func calcLangDistribution(distribution LanguageDistribution, percentageThreshold float64) LanguageDistribution {
 	totalLines := float64(0)
 	langDistribution := make(map[string]float64)
 	for _, lines := range distribution {
 		totalLines += lines
 	}
 	for lang, val := range distribution {
-		langDistribution[lang] = val * 100.0 / totalLines
+		percentage := val * 100.0 / totalLines
+		if percentage > percentageThreshold {
+			langDistribution[lang] = percentage
+		}
 	}
 	return langDistribution
 }
@@ -92,9 +102,22 @@ func calcTotalForksCount(repos []RepoData) int {
 	return count
 }
 
-func GetUserData(username string, repoLimit int) UserFormattedData {
+func calcUserActivity(repos []RepoData) UserActivity {
+	userActivity := make(map[int]int)
+	for _, r := range repos {
+		pushedAt := r.PushedAt.Year()
+		createdAt := r.CreatedAt.Year()
+		userActivity[pushedAt] += 1
+		if createdAt < pushedAt {
+			userActivity[createdAt] += 1
+		}
+	}
+	return userActivity
+}
+
+func GetUserData(username string, repoLimit int, langThreshold float64) UserFormattedData {
 	client := http.Client{
-		Timeout: time.Second * 3,
+		Timeout: time.Second * 10,
 	}
 
 	user := UserFullData{}
@@ -109,25 +132,28 @@ func GetUserData(username string, repoLimit int) UserFormattedData {
 
 	langApiList := getLanguageApiURLs(user.Repos, repoLimit)
 
-	languageBitList := make(map[string]float64)
+	languageKBList := make(map[string]float64)
 	for _, url := range langApiList {
 		languageRequest, _ := http.NewRequest(http.MethodGet, url, nil)
 
 		repoLangUsage := fetchGithubData[map[string]interface{}](&client, languageRequest)
 		for lang, val := range repoLangUsage {
 			if v, ok := val.(float64); ok {
-				languageBitList[lang] += v
+				languageKBList[lang] = languageKBList[lang] + v/1024.0
 			}
 		}
 	}
 
-	user.LanguageDistribution = calcLangDistribution(languageBitList)
+	user.LanguageDistribution = calcLangDistribution(languageKBList, langThreshold)
 	totalForkCount := calcTotalForksCount(user.Repos)
+	userActivity := calcUserActivity(user.Repos)
 
 	return UserFormattedData{
 		user.UserData.Username,
 		user.UserData.Followers,
 		totalForkCount,
+		len(user.Repos),
 		user.LanguageDistribution,
+		userActivity,
 	}
 }
