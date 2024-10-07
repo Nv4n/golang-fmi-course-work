@@ -109,7 +109,9 @@ func calcUserActivity(repos []RepoData) UserActivity {
 		createdAt := r.CreatedAt.Year()
 		userActivity[pushedAt] += 1
 		if createdAt < pushedAt {
-			userActivity[createdAt] += 1
+			for y := createdAt; y < pushedAt; y++ {
+				userActivity[y] += 1
+			}
 		}
 	}
 	return userActivity
