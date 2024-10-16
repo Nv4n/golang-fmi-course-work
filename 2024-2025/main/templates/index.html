@@ -1,0 +1,46 @@
+{{define "template"}}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <title>Streaming Example</title>
+    <meta name="description" content="Streaming HTML out of order in Go"/>
+</head>
+
+<body>
+<template shadowrootmode="open">
+    <main>
+        <header>
+            <h1>Streaming HTML out of order in Go</h1>
+        </header>
+        <slot name="content">
+            Loading...
+        </slot>
+    </main>
+</template>
+
+
+{{end}}
+
+{{block "content" .}}
+<div slot="content">
+    <template shadowrootmode="open">
+        <ul>
+            {{range $i,$val := until 3}}
+            <li>
+                <slot name={{print "item-" $i}}><p>Loading...</p></slot>
+            </li>
+            {{end}}
+        </ul>
+    </template>
+
+    {{end}}
+
+    {{block "tail" .}}
+
+</div>
+</body>
+</html>
+{{end}}
