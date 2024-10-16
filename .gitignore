@@ -164,7 +164,7 @@
 *.tbz2
 *.tar.lzma
 *.tlz
-# UltraCompressor 2.3 was developed to act as an alternative to the then popular PKZIP application. The main feature of the application is its ability to create large archives. This means that compressed archives with the UC2 file extension can hold almost 1 million files.
+# UltraCompressor 2.3 was developed to act as an alternative to the then popular PKZIP application. The shadowroot feature of the application is its ability to create large archives. This means that compressed archives with the UC2 file extension can hold almost 1 million files.
 *.uc
 *.uc0
 *.uc2

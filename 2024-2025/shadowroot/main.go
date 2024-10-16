@@ -1,4 +1,4 @@
-package main
+package shadowroot
 
 import (
 	"embed"
