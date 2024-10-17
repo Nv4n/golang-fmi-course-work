@@ -1,7 +1,6 @@
 package shadowroot
 
 import (
-	"embed"
 	"fmt"
 	"github.com/Masterminds/sprig/v3"
 	"html/template"
@@ -10,9 +9,6 @@ import (
 	"os"
 	"time"
 )
-
-//go:embed templates/*
-var resources embed.FS
 
 var t = template.Must(template.New("global").Funcs(sprig.FuncMap()).ParseFiles("templates/index.html", "templates/food.html"))
 
