@@ -10,7 +10,6 @@ import (
 )
 
 var t = template.Must(template.New("global").Funcs(sprig.FuncMap()).ParseFiles("templates/index.html", "templates/food.html"))
-var reqChan chan struct{}
 
 type Food struct {
 	Id   int
@@ -50,6 +49,7 @@ func main() {
 }
 
 func loadAsync(w http.ResponseWriter, rc *http.ResponseController) (err error) {
+
 	err = t.ExecuteTemplate(w, "template", nil)
 	if err != nil {
 		return
@@ -71,24 +71,20 @@ func loadAsync(w http.ResponseWriter, rc *http.ResponseController) (err error) {
 	}
 
 	for i, item := range Foods {
-		select {
-		default:
-			data := struct {
-				Index int
-				Value string
-			}{i, item.Name}
-			err = t.ExecuteTemplate(w, "slot", data)
-			if err != nil {
-				return
-			}
-			err = rc.Flush()
-			if err != nil {
-				return
-			}
-
-			time.Sleep(time.Second)
+		data := struct {
+			Index int
+			Value string
+		}{i, item.Name}
+		err = t.ExecuteTemplate(w, "slot", data)
+		if err != nil {
+			return
+		}
+		err = rc.Flush()
+		if err != nil {
+			return
 		}
 
+		time.Sleep(time.Second)
 	}
 
 	err = t.ExecuteTemplate(w, "tail", nil)
