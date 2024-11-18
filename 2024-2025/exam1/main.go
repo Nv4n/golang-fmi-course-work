@@ -1,115 +1,37 @@
 package main
 
 import (
-	"bufio"
+	"exam1/algorithm"
+	"exam1/reader"
 	"exam1/types"
 	"flag"
 	"fmt"
+	"html/template"
 	"log"
-	"math"
-	"os"
+	"net/http"
 	"strconv"
-	"strings"
 )
 
-type Towns map[int]string
+type HtmlTown struct {
+	Name string
+	ID   int
+}
+
+type HtmlResult struct {
+	FromID   int
+	FromTown string
+	ToID     int
+	ToTown   string
+	Dist     float64
+}
 
 var townsDir string
-var graph types.Graph
-var towns Towns
+var graph *types.Graph
+var towns types.Towns
 
 func init() {
 	flag.StringVar(&townsDir, "dir", "public\\towns.txt", "a file containing the town directories")
-	towns = make(Towns)
-}
-
-func readFile() {
-	pwd, _ := os.Getwd()
-	open, err := os.Open(fmt.Sprintf("%s\\%s", pwd, townsDir))
-	if err != nil {
-		log.Fatalf("error opening fileDir %s: %v", townsDir, err)
-	}
-	defer func(open *os.File) {
-		err := open.Close()
-		if err != nil {
-			log.Fatal(err)
-		}
-	}(open)
-	scanner := bufio.NewScanner(open)
-
-	var nodes []*types.Node
-
-	nodes = readTowns(scanner, nodes)
-	if err := scanner.Err(); err != nil {
-		log.Fatalf("Error during reading towns: %v\n", err)
-	}
-
-	for scanner.Scan() {
-		distance := scanner.Text()
-		split := strings.Split(distance, ",")
-		if len(split) != 3 {
-			log.Fatal("invalid distance format")
-		}
-		from, err := strconv.Atoi(split[0])
-		if err != nil {
-			log.Fatal("invalid town index")
-		}
-		to, err := strconv.Atoi(split[1])
-		if err != nil {
-			log.Fatal("invalid town index")
-		}
-		dist, err := strconv.ParseFloat(split[2], 64)
-		if err != nil {
-			log.Fatal("invalid town index")
-		}
-		var fromInd int
-		var toInd int
-		for i, n := range nodes {
-			if n.ID == from {
-				fromInd = i
-				break
-			}
-		}
-		for i, n := range nodes {
-			if n.ID == to {
-				toInd = i
-				break
-			}
-		}
-
-		nodes[fromInd].Neighbors = append(
-			nodes[fromInd].Neighbors,
-			&types.Edge{Destination: nodes[toInd], Weight: dist})
-	}
-	if err := scanner.Err(); err != nil {
-		log.Fatalf("Error during reading distances: %v\n", err)
-	}
-}
-
-func readTowns(scanner *bufio.Scanner, nodes []*types.Node) []*types.Node {
-	for scanner.Scan() {
-		town := scanner.Text()
-		if town == "" || town == "\n" {
-			break
-		}
-		split := strings.Split(town, ",")
-		if len(split) != 2 {
-			log.Fatal("invalid town format")
-		}
-		ind, err := strconv.Atoi(split[0])
-		if err != nil {
-			log.Fatal("invalid town index")
-		}
-		towns[ind] = split[1]
-
-		node := &types.Node{
-			ID:       ind,
-			Distance: math.Inf(1),
-			Visited:  false,
-		}
-		nodes = append(nodes, node)
-	}
-	return nodes
+	towns = make(types.Towns)
 }
 
 func main() {
@@ -118,6 +40,78 @@ func main() {
 		log.Fatal("can't have empty towns dir")
 	}
 
-	readFile()
+	nodes := reader.ReadFile(townsDir, towns)
+	graph = types.NewGraph(nodes)
 
+	types.InitializeDistances(*graph)
+
+	graph = types.NewGraph(nodes)
+	var townsHtmlData []HtmlTown
+	for i, t := range towns {
+		townsHtmlData = append(townsHtmlData, HtmlTown{Name: t, ID: i})
+	}
+	http.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
+		tmpl := template.Must(template.ParseFiles("views/page.go.html", "views/choose.go.html"))
+		_ = tmpl.ExecuteTemplate(w, "Page", townsHtmlData)
+	})
+
+	http.HandleFunc("POST /dijkstra", func(w http.ResponseWriter, r *http.Request) {
+		err := r.ParseForm()
+		if err != nil {
+			http.Error(w, "Error parsing form data", http.StatusBadRequest)
+			return
+		}
+		from := r.PostForm.Get("from-town")
+		to := r.PostForm.Get("to-town")
+		if from == "" || to == "" {
+			http.Error(w, "Error parsing form data", http.StatusBadRequest)
+			return
+		}
+		if from == to {
+			http.Error(w, "Error parsing form data", http.StatusBadRequest)
+			return
+		}
+		//fmt.Println(from)
+		//fmt.Printf(to)
+		var source *types.Node
+		var target *types.Node
+
+		for i, node := range graph.Nodes {
+			if id, err := strconv.Atoi(from); err == nil && node.ID == id {
+				source = graph.Nodes[i]
+				break
+			}
+		}
+		for i, node := range graph.Nodes {
+			if id, err := strconv.Atoi(to); err == nil && node.ID == id {
+				target = graph.Nodes[i]
+				break
+			}
+		}
+		algorithm.Dijkstra(graph, source, target)
+		fmt.Println()
+		fmt.Printf("From ID: %v, Town: %v \n", source.ID, towns[source.ID])
+		fmt.Printf("To ID: %v, Town: %v, Dist: %v \n", target.ID, towns[target.ID], target.Distance)
+
+		res := HtmlResult{FromID: source.ID, FromTown: towns[source.ID], ToID: target.ID, ToTown: towns[target.ID],
+			Dist: target.Distance}
+		tmpl := template.Must(template.ParseFiles("views/page.go.html", "views/res.go.html"))
+		_ = tmpl.ExecuteTemplate(w, "Page", res)
+	})
+
+	Example(nodes)
+	fmt.Println("Listening on port 8081")
+	log.Fatal(http.ListenAndServe(":8081", nil))
+}
+
+func Example(nodes []*types.Node) {
+	fmt.Println("THIS IS JUST EXAMPLE")
+	graph = types.NewGraph(nodes)
+	source := graph.Nodes[0]
+	target := graph.Nodes[4]
+	algorithm.Dijkstra(graph, source, target)
+
+	fmt.Printf("From ID: %v, Town: %v \n", source.ID, towns[source.ID])
+	fmt.Printf("To ID: %v, Town: %v, Dist: %v \n", target.ID, towns[target.ID], target.Distance)
+	fmt.Println("END OF JUST EXAMPLE")
 }

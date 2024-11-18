@@ -1,12 +1,12 @@
 {{block "Content" .}}
-    <form action="/" method="post">
+    <form action="/dijkstra" method="post">
         <div>
             <label for="from-town">Choose from town:</label>
 
             <select name="from-town" id="from-town">
                 <option value="">--Please choose an option--</option>
                 {{range .}}
-                    <option value={{.}}>{{.}}</option>
+                    <option value={{.ID}}>{{.Name}}</option>
                 {{end}}
             </select>
         </div>
@@ -16,10 +16,12 @@
             <select name="to-town" id="to-town">
                 <option value="">--Please choose an option--</option>
                 {{range .}}
-                    <option value={{.}}>{{.}}</option>
+                    <option value={{.ID}}>{{.Name}}</option>
                 {{end}}
             </select>
         </div>
+
+        <button type="submit">SUBMIT</button>
     </form>
 
 {{end}}
