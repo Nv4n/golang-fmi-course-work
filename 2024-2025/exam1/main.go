@@ -2,29 +2,28 @@ package main
 
 import (
 	"bufio"
+	"exam1/types"
 	"flag"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"strconv"
 	"strings"
 )
 
-type Graph map[int]Vertex
-type Vertex map[int]float64
 type Towns map[int]string
 
 var townsDir string
-var graph Graph
+var graph types.Graph
 var towns Towns
 
 func init() {
 	flag.StringVar(&townsDir, "dir", "public\\towns.txt", "a file containing the town directories")
-	graph = make(Graph)
 	towns = make(Towns)
 }
 
-func readTowns() {
+func readFile() {
 	pwd, _ := os.Getwd()
 	open, err := os.Open(fmt.Sprintf("%s\\%s", pwd, townsDir))
 	if err != nil {
@@ -38,21 +37,9 @@ func readTowns() {
 	}(open)
 	scanner := bufio.NewScanner(open)
 
-	for scanner.Scan() {
-		town := scanner.Text()
-		if town == "" || town == "\n" {
-			break
-		}
-		split := strings.Split(town, ",")
-		if len(split) != 2 {
-			log.Fatal("invalid town format")
-		}
-		ind, err := strconv.Atoi(split[0])
-		if err != nil {
-			log.Fatal("invalid town index")
-		}
-		towns[ind] = split[1]
-	}
+	var nodes []*types.Node
+
+	nodes = readTowns(scanner, nodes)
 	if err := scanner.Err(); err != nil {
 		log.Fatalf("Error during reading towns: %v\n", err)
 	}
@@ -71,19 +58,58 @@ func readTowns() {
 		if err != nil {
 			log.Fatal("invalid town index")
 		}
-		dist, err := strconv.ParseFloat(split[2], 32)
+		dist, err := strconv.ParseFloat(split[2], 64)
 		if err != nil {
 			log.Fatal("invalid town index")
 		}
-
-		if _, ok := graph[from]; !ok {
-			graph[from] = make(Vertex)
+		var fromInd int
+		var toInd int
+		for i, n := range nodes {
+			if n.ID == from {
+				fromInd = i
+				break
+			}
 		}
-		graph[from][to] = dist
+		for i, n := range nodes {
+			if n.ID == to {
+				toInd = i
+				break
+			}
+		}
+
+		nodes[fromInd].Neighbors = append(
+			nodes[fromInd].Neighbors,
+			&types.Edge{Destination: nodes[toInd], Weight: dist})
 	}
 	if err := scanner.Err(); err != nil {
 		log.Fatalf("Error during reading distances: %v\n", err)
 	}
+}
+
+func readTowns(scanner *bufio.Scanner, nodes []*types.Node) []*types.Node {
+	for scanner.Scan() {
+		town := scanner.Text()
+		if town == "" || town == "\n" {
+			break
+		}
+		split := strings.Split(town, ",")
+		if len(split) != 2 {
+			log.Fatal("invalid town format")
+		}
+		ind, err := strconv.Atoi(split[0])
+		if err != nil {
+			log.Fatal("invalid town index")
+		}
+		towns[ind] = split[1]
+
+		node := &types.Node{
+			ID:       ind,
+			Distance: math.Inf(1),
+			Visited:  false,
+		}
+		nodes = append(nodes, node)
+	}
+	return nodes
 }
 
 func main() {
@@ -92,6 +118,6 @@ func main() {
 		log.Fatal("can't have empty towns dir")
 	}
 
-	readTowns()
+	readFile()
 
 }
