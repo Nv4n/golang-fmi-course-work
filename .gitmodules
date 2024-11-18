@@ -1,0 +1,3 @@
+[submodule "2023-2024/github_client"]
+	path = 2023-2024/github_client
+	url = https://github.com/Nv4n/github_client

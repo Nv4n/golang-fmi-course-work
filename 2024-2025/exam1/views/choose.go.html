@@ -1,0 +1,25 @@
+{{block "Content" .}}
+    <form action="/" method="post">
+        <div>
+            <label for="from-town">Choose from town:</label>
+
+            <select name="from-town" id="from-town">
+                <option value="">--Please choose an option--</option>
+                {{range .}}
+                    <option value={{.}}>{{.}}</option>
+                {{end}}
+            </select>
+        </div>
+
+        <div>
+            <label for="to-town">Choose to town:</label>
+            <select name="to-town" id="to-town">
+                <option value="">--Please choose an option--</option>
+                {{range .}}
+                    <option value={{.}}>{{.}}</option>
+                {{end}}
+            </select>
+        </div>
+    </form>
+
+{{end}}
