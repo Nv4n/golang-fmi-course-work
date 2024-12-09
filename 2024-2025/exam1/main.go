@@ -23,6 +23,7 @@ type HtmlResult struct {
 	ToID     int
 	ToTown   string
 	Dist     float64
+	Path     string
 }
 
 var townsDir string
@@ -43,9 +44,6 @@ func main() {
 	nodes := reader.ReadFile(townsDir, towns)
 	graph = types.NewGraph(nodes)
 
-	types.InitializeDistances(*graph)
-
-	graph = types.NewGraph(nodes)
 	var townsHtmlData []HtmlTown
 	for i, t := range towns {
 		townsHtmlData = append(townsHtmlData, HtmlTown{Name: t, ID: i})
@@ -71,8 +69,7 @@ func main() {
 			http.Error(w, "Error parsing form data", http.StatusBadRequest)
 			return
 		}
-		//fmt.Println(from)
-		//fmt.Printf(to)
+
 		var source *types.Node
 		var target *types.Node
 
@@ -88,18 +85,24 @@ func main() {
 				break
 			}
 		}
-		algorithm.Dijkstra(graph, source, target)
+		prev := algorithm.Dijkstra(graph, source, target)
+		var prevTowns string
+		for node, t := range prev {
+			if t != nil {
+				prevTowns += fmt.Sprintf("%v -> %v ->", towns[node.ID], towns[t.ID])
+			}
+		}
 		fmt.Println()
 		fmt.Printf("From ID: %v, Town: %v \n", source.ID, towns[source.ID])
 		fmt.Printf("To ID: %v, Town: %v, Dist: %v \n", target.ID, towns[target.ID], target.Distance)
 
 		res := HtmlResult{FromID: source.ID, FromTown: towns[source.ID], ToID: target.ID, ToTown: towns[target.ID],
-			Dist: target.Distance}
+			Dist: target.Distance, Path: prevTowns}
 		tmpl := template.Must(template.ParseFiles("views/page.go.html", "views/res.go.html"))
 		_ = tmpl.ExecuteTemplate(w, "Page", res)
 	})
 
-	Example(nodes)
+	//Example(nodes)
 	fmt.Println("Listening on port 8081")
 	log.Fatal(http.ListenAndServe(":8081", nil))
 }

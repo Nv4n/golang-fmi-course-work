@@ -7,7 +7,7 @@ import (
 
 var queue types.Queue
 
-func Dijkstra(graph *types.Graph, source *types.Node, target *types.Node) {
+func Dijkstra(graph *types.Graph, source *types.Node, target *types.Node) map[*types.Node]*types.Node {
 	prev := make(map[*types.Node]*types.Node)
 
 	for _, n := range graph.Nodes {
@@ -34,10 +34,12 @@ func Dijkstra(graph *types.Graph, source *types.Node, target *types.Node) {
 			newDistance := current.Distance + edge.Weight
 			if !edge.Destination.Visited && newDistance < edge.Destination.Distance {
 				edge.Destination.Distance = newDistance
-				queue.Push(edge.Destination)
+				//queue.Push(edge.Destination)
+				prev[edge.Destination] = current
 			}
 		}
 	}
+	return prev
 }
 
 //function Dijkstra(Graph, source):
