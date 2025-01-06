@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"math"
 	"math/rand"
 	"runtime"
@@ -18,7 +17,8 @@ func generator(ctx context.Context, power int64) chan int64 {
 			randomNum := time.Duration(rand.Int31n(800) + 200)
 			select {
 			case <-goCtx.Done():
-				log.Println("Gen1 Done")
+				fmt.Println("Generator goroutine is Done")
+				return
 			case <-time.After(randomNum * time.Millisecond):
 				outputChan <- int64(math.Pow(float64(i), float64(power)))
 			}
@@ -31,38 +31,43 @@ func multiplex(ctx context.Context, channels []chan int64) <-chan int64 {
 	var wg sync.WaitGroup
 	outputChan := make(chan int64)
 
-	output := func(id int, inputChan <-chan int64) {
+	outputFunc := func(id int, inputChan <-chan int64, goCtx context.Context) {
 		defer wg.Done()
-
-		for value := range inputChan {
+		for {
 			select {
-			case <-ctx.Done():
-				log.Println("Ending multiplex goroutine")
-			case outputChan <- value:
-
+			case <-goCtx.Done():
+				fmt.Printf("Ending multiplex goroutine %d\n", id)
+				return
+			case val, ok := <-inputChan:
+				if ok {
+					outputChan <- val
+				} else {
+					return
+				}
 			}
-
 		}
 	}
 
-	wg.Add(len(channels))
 	for i, inputChan := range channels {
-		go output(i, inputChan)
+		wg.Add(1)
+		go outputFunc(i, inputChan, ctx)
 	}
-	go func() {
-		defer close(outputChan)
+	go func(goCtx context.Context) {
 		wg.Wait()
-	}()
+		close(outputChan)
+
+	}(ctx)
 	return outputChan
 }
 
 func main() {
-	ctx, cancel := context.WithCancel(context.Background())
-	gen1Chan := generator(ctx, 1)
-	gen2Chan := generator(ctx, 2)
-	gen3Chan := generator(ctx, 3)
-	gen4Chan := generator(ctx, 4)
-	gen5Chan := generator(ctx, 5)
+	timeoutCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+	gen1Chan := generator(timeoutCtx, 1)
+	gen2Chan := generator(timeoutCtx, 2)
+	gen3Chan := generator(timeoutCtx, 3)
+	gen4Chan := generator(timeoutCtx, 4)
+	gen5Chan := generator(timeoutCtx, 5)
 
 	defer cancel()
 	defer close(gen1Chan)
@@ -70,19 +75,20 @@ func main() {
 	defer close(gen3Chan)
 	defer close(gen4Chan)
 	defer close(gen5Chan)
-	defer log.Println(fmt.Sprintf("Goroutines: %d", runtime.NumGoroutine()))
 
 	channels := []chan int64{gen1Chan, gen2Chan, gen3Chan, gen4Chan, gen5Chan}
-	outputChan := multiplex(ctx, channels)
+	outputChan := multiplex(timeoutCtx, channels)
 
-	timeoutCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	for {
 		select {
 		case <-timeoutCtx.Done():
 			cancel()
+			time.Sleep(1 * time.Second)
+			fmt.Println(fmt.Sprintf("Goroutines: %d", runtime.NumGoroutine()))
 			return
 		case value := <-outputChan:
-			log.Printf("New value: %d", value)
+			fmt.Printf("New value: %d\n", value)
 		}
 	}
+
 }
