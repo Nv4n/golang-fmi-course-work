@@ -60,7 +60,16 @@ CREATE TABLE users
 
 -- Insert data into `users`
 INSERT INTO users (id, first_name, last_name, email, username, password, active, created, modified)
-VALUES
+VALUES (1, 'Default', 'Admin', 'admin@gmail.com', 'admin',
+        '{bcrypt}$2a$10$wtZZE9untaIrJgR2P9klsuBVdVVxd0QM1Z..R1aE0YsucS.IkXIu.', FALSE, '2021-01-06 22:22:40.554',
+        '2021-01-06 22:22:40.554')
+        ,
+       (2, 'Ivan', 'Petrov', 'ivan@gmail.com', 'ivan',
+        '{bcrypt}$2a$10$pm2OKA/ESO3rpGvI0YZOVOqrTvl1HUhyAAOi.ztUvK/K7xca1aKMy', FALSE, '2021-01-06 22:22:40.554',
+        '2021-01-06 22:22:40.554'),
+       (3, 'Veronika', 'Dimitrova', 'vera@gmail.com', 'veronika',
+        '{bcrypt}$2a$10$ls9amuWqw39yXgX4s20DDecgCOEZXx1PPCPuINizF1rzTmG0vzPLG', FALSE, '2021-01-06 22:22:40.554',
+        '2021-01-06 22:22:40.554');
 
 
 -- Table structure for `projects_users`
@@ -98,7 +107,3 @@ VALUES (1, 'ADMIN'),
        (3, 'ADMIN'),
        (3, 'EMPLOYEE');
 
-(1, 'Default', 'Admin', 'admin@gmail.com', 'admin', '{bcrypt}$2a$10$wtZZE9untaIrJgR2P9klsuBVdVVxd0QM1Z..R1aE0YsucS.IkXIu.', FALSE, '2021-01-06 22:22:40.554', '2021-01-06 22:22:40.554')
-,
-                                                                                                        (2, 'Ivan', 'Petrov', 'ivan@gmail.com', 'ivan', '{bcrypt}$2a$10$pm2OKA/ESO3rpGvI0YZOVOqrTvl1HUhyAAOi.ztUvK/K7xca1aKMy', FALSE, '2021-01-06 22:22:40.554', '2021-01-06 22:22:40.554'),
-                                                                                                        (3, 'Veronika', 'Dimitrova', 'vera@gmail.com', 'veronika', '{bcrypt}$2a$10$ls9amuWqw39yXgX4s20DDecgCOEZXx1PPCPuINizF1rzTmG0vzPLG', FALSE, '2021-01-06 22:22:40.554', '2021-01-06 22:22:40.554');
